@@ -1,0 +1,88 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Tenant {
+  id          String       @id @default(cuid())
+  slug        String       @unique
+  name        String
+  plan        Plan         @default(FREE)
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  invitations Invitation[]
+  notes       Note[]
+  users       User[]
+
+  @@map("tenants")
+}
+
+model User {
+  id              String       @id @default(cuid())
+  email           String
+  password        String
+  role            Role         @default(MEMBER)
+  tenantId        String
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+  invitationsSent Invitation[] @relation("InvitationsSent")
+  notes           Note[]
+  tenant          Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([email, tenantId])
+  @@map("users")
+}
+
+model Note {
+  id        String   @id @default(cuid())
+  title     String
+  content   String
+  authorId  String
+  tenantId  String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  author    User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@map("notes")
+}
+
+model Invitation {
+  id         String           @id @default(cuid())
+  email      String
+  role       Role             @default(MEMBER)
+  token      String           @unique
+  status     InvitationStatus @default(PENDING)
+  tenantId   String
+  invitedBy  String
+  expiresAt  DateTime
+  acceptedAt DateTime?
+  createdAt  DateTime         @default(now())
+  updatedAt  DateTime         @updatedAt
+  inviter    User             @relation("InvitationsSent", fields: [invitedBy], references: [id], onDelete: Cascade)
+  tenant     Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([email, tenantId])
+  @@map("invitations")
+}
+
+enum Role {
+  ADMIN
+  MEMBER
+}
+
+enum Plan {
+  FREE
+  PRO
+}
+
+enum InvitationStatus {
+  PENDING
+  ACCEPTED
+  EXPIRED
+  CANCELLED
+}
